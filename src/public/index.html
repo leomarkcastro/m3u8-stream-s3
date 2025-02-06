@@ -24,7 +24,39 @@
       .ping-history {
         font-family: monospace;
       }
+      .timemark {
+        color: #666;
+        font-weight: bold;
+      }
+      .uploaded-files {
+        margin-top: 10px;
+        font-size: 0.9em;
+      }
+      .url {
+        word-break: break-all;
+        color: #0066cc;
+      }
+      .video-container {
+        margin-top: 10px;
+        display: none;
+      }
+      .video-container.visible {
+        display: block;
+      }
+      .toggle-video {
+        background-color: #4caf50;
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .toggle-video:hover {
+        background-color: #45a049;
+      }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   </head>
   <body>
     <h1>Stream State Monitor</h1>
@@ -35,6 +67,35 @@
     <div id="streams"></div>
 
     <script>
+      function initializeHLS(videoElement, url) {
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(url);
+          hls.attachMedia(videoElement);
+        }
+        // For browsers with native HLS support (Safari)
+        else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+          videoElement.src = url;
+        }
+      }
+
+      function toggleVideo(streamId) {
+        const container = document.getElementById(`video-${streamId}`);
+        const button = document.getElementById(`toggle-${streamId}`);
+        if (container.classList.contains("visible")) {
+          container.classList.remove("visible");
+          button.textContent = "Show Video";
+        } else {
+          container.classList.add("visible");
+          button.textContent = "Hide Video";
+          const videoElement = document.querySelector(
+            `#video-${streamId} video`
+          );
+          const url = videoElement.dataset.streamUrl;
+          initializeHLS(videoElement, url);
+        }
+      }
+
       function updateStatus() {
         fetch("/api/status")
           .then((response) => response.json())
@@ -52,15 +113,39 @@
               .map(
                 ([name, state]) => `
                         <div class="stream ${
-                          state.active ? "active" : "inactive"
+                          state.isActive ? "active" : "inactive"
                         }">
                             <h3>${name}</h3>
                             <p>Status: ${
-                              state.active ? "Active" : "Inactive"
+                              state.isActive ? "Active" : "Inactive"
                             }</p>
                             <p>Last Ping: ${new Date(
-                              state.lastPing
+                              state.lastActiveTime
                             ).toLocaleString()}</p>
+                            <p class="timemark">Current Timemark: ${
+                              state.currentTimemark || "N/A"
+                            }</p>
+                            <p class="url">URL: ${state.url || "N/A"}</p>
+                            ${
+                              state.url
+                                ? `
+                              <button class="toggle-video" id="toggle-${name}" onclick="toggleVideo('${name}')">Show Video</button>
+                              <div class="video-container" id="video-${name}">
+                                <video width="100%" controls data-stream-url="${state.url}"></video>
+                              </div>
+                            `
+                                : ""
+                            }
+                            <div class="uploaded-files">
+                                <p>Uploaded Files:</p>
+                                ${
+                                  state.uploadedFiles
+                                    ? `<ul>${state.uploadedFiles
+                                        .map((file) => `<li>${file}</li>`)
+                                        .join("")}</ul>`
+                                    : "No files uploaded"
+                                }
+                            </div>
                             <p class="ping-history">History: ${
                               state.pingHistory
                             }</p>
