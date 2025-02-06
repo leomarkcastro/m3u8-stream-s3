@@ -1,5 +1,6 @@
 import { config } from "./config";
 import { StreamWatcher } from "./watcher";
+import { startServer } from './server';
 
 async function main() {
     const streamWatcher = new StreamWatcher(
@@ -21,6 +22,14 @@ async function main() {
 
     streamWatcher.start();
 
+    // Start the Express server
+    startServer();
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+        streamWatcher.stop();
+        process.exit(0);
+    });
 
     // let outputDir = 'recordings/Room 130/2025-01-15T16-28-31.370Z';
     // let fileContents = fs.readdirSync(outputDir);

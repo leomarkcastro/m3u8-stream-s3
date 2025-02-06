@@ -5,10 +5,10 @@ import { uploadFile } from './s3';
 import ffmpeg from 'fluent-ffmpeg';
 import { dir } from 'tmp-promise';
 import chokidar from 'chokidar';
+import { logger } from './utils/logger';
 
 async function selectStreamQuality(name: string, masterM3u8Url: string, preferredQuality: 'highest' | 'lowest' | number = 'lowest'): Promise<string> {
     try {
-        // console.log(`Fetching master playlist from: ${masterM3u8Url}`);
         const response = await fetch(masterM3u8Url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0',
@@ -26,8 +26,6 @@ async function selectStreamQuality(name: string, masterM3u8Url: string, preferre
         const lines = manifest.split('\n');
         let currentBandwidth: number | null = null;
 
-        // console.log('Parsing available stream qualities...');
-        // console.log('lines', lines);
         for (const line of lines) {
             if (line.includes('#EXT-X-STREAM-INF')) {
                 const bandwidthMatch = line.match(/BANDWIDTH=(\d+)/);
@@ -35,27 +33,24 @@ async function selectStreamQuality(name: string, masterM3u8Url: string, preferre
             } else if (line.trim() && !line.startsWith('#') && currentBandwidth) {
                 const streamUrl = new URL(line, masterM3u8Url).href;
                 streamUrls.push({ bandwidth: currentBandwidth, url: streamUrl });
-                // console.log(`Found quality variant: ${currentBandwidth / 1000}kbps`);
                 currentBandwidth = null;
             }
         }
 
         if (streamUrls.length === 0) {
-            // console.log('No quality variants found, using original URL');
             return masterM3u8Url;
         }
 
         // Sort streams by bandwidth
         streamUrls.sort((a, b) => a.bandwidth - b.bandwidth);
-        // console.log(`Found ${streamUrls.length} different quality variants`);
 
         let selectedStream: string;
         if (preferredQuality === 'highest') {
             selectedStream = streamUrls[streamUrls.length - 1].url;
-            console.log(`[${name}] Selected highest quality: ${streamUrls[streamUrls.length - 1].bandwidth / 1000}kbps`);
+            logger.log(`[${name}] Selected highest quality: ${streamUrls[streamUrls.length - 1].bandwidth / 1000}kbps`);
         } else if (preferredQuality === 'lowest') {
             selectedStream = streamUrls[0].url;
-            console.log(`[${name}] Selected lowest quality: ${streamUrls[0].bandwidth / 1000}kbps`);
+            logger.log(`[${name}] Selected lowest quality: ${streamUrls[0].bandwidth / 1000}kbps`);
         } else {
             // Find the closest matching bandwidth
             const closest = streamUrls.reduce((prev, curr) => {
@@ -64,13 +59,13 @@ async function selectStreamQuality(name: string, masterM3u8Url: string, preferre
                     : prev;
             });
             selectedStream = closest.url;
-            console.log(`[${name}] Selected closest quality to ${preferredQuality / 1000}kbps: ${closest.bandwidth / 1000}kbps`);
+            logger.log(`[${name}] Selected closest quality to ${preferredQuality / 1000}kbps: ${closest.bandwidth / 1000}kbps`);
         }
 
         return selectedStream;
     } catch (error) {
         console.error('Error parsing master playlist:', error);
-        console.log(`[${name}]  Falling back to original URL`);
+        logger.log(`[${name}]  Falling back to original URL`);
         return masterM3u8Url;
     }
 }
@@ -80,6 +75,7 @@ export async function downloadHLSTOMp4(
     m3u8Url: string,
     chunkDuration: number = 5, // Default chunk duration in seconds
     onBuffer: (buffer: Buffer) => Promise<void>,
+    onTimeUpdate: (timemark: string) => void,
     onEnd: (streamFiles: string[]) => Promise<void>,
     preferredQuality: 'highest' | 'lowest' | number = 'lowest'
 ): Promise<void> {
@@ -91,16 +87,18 @@ export async function downloadHLSTOMp4(
     // Watch for new files in the temporary directory
     const watcher = chokidar.watch(tmpDir, {
         persistent: true,
-        usePolling: true,
+        // usePolling: true,
         interval: 10_000,
         ignored: (file, _stats) => Boolean(_stats?.isFile() && !file.endsWith('.mp4')),
         awaitWriteFinish: {
-            pollInterval: 5000,
-            stabilityThreshold: 20_000
-        }
+            pollInterval: 10_000,
+            stabilityThreshold: 60 * 1_000 // wait 1 minute after last write
+        },
+        atomic: true
     });
 
     watcher.on('add', async (filePath) => {
+        logger.log(`[${name}] New file detected: ${filePath}`);
         try {
             const buffer = await fs.promises.readFile(filePath);
             onBuffer(buffer);
@@ -131,21 +129,28 @@ export async function downloadHLSTOMp4(
     ]);
     ffmpegCommand.output(output);
     ffmpegCommand.on('end', async () => {
-        console.log('ffmpeg end');
+        logger.log('ffmpeg end');
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(streamFiles);
-        await cleanup();
+        // sleep for 5 minutes before cleanup
+        setTimeout(async () => {
+            await cleanup();
+        }, 5 * 60 * 1_000);
     });
     ffmpegCommand.on('error', async (err) => {
-        console.log('ffmpeg error', err);
+        logger.log('ffmpeg error', err);
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(streamFiles);
-        await cleanup();
+        // sleep for 5 minutes before cleanup
+        setTimeout(async () => {
+            await cleanup();
+        }, 5 * 60 * 1_000);
     });
     ffmpegCommand.on('progress', (progress) => {
-        console.log(`[${name}] Processing: ${progress.timemark}ms done`);
+        logger.log(`[${name}] Processing: ${progress.timemark}ms done`);
+        onTimeUpdate(progress.timemark);
     });
     ffmpegCommand.run();
 }
@@ -155,7 +160,9 @@ export function downloadStream(
     streamUrl: string,
     outputDir: string,
     uploadToS3: boolean = false,
-    chunkDuration: number = 60
+    chunkDuration: number = 60,
+    onTimeUpdate: (timemark: string) => void,
+    onFileUpload?: (file: string) => void
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         // Clear output directory if it exists
@@ -181,20 +188,22 @@ export function downloadStream(
 
                 try {
                     await fs.promises.writeFile(localPath, buffer);
-                    console.log(`[${name}] Local Save ${localPath}`);
+                    logger.log(`[${name}] Local Save ${localPath}`);
 
                     if (uploadToS3) {
                         // replace backslashes with forward slashes
                         let s3Path = outputDir.replace(/\\/g, '/').replace('recordings/', '');
                         const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${s3Path}/${filename}`;
                         await uploadFile(s3ChunkPath, localPath);
-                        console.log(`[${name}] S3 Upload ${s3ChunkPath}`);
+                        logger.log(`[${name}] S3 Upload ${s3ChunkPath}`);
+                        onFileUpload?.(s3ChunkPath);
                     }
                 } catch (err) {
                     console.error(`[${name}] Error saving/uploading file:`, err);
                     reject(err);
                 }
             },
+            onTimeUpdate,
             async (_streamFiles) => {
                 try {
                     let fileContents = fs.readdirSync(outputDir);
@@ -243,12 +252,12 @@ export async function combineStreams(
 
         let cmd = ffmpegCommand
             .on('error', function (err) {
-                console.log(`[${name}] An error occurred: ` + err.message);
+                logger.log(`[${name}] An error occurred: ` + err.message);
                 fs.unlinkSync(concatFilePath);
                 resolve();
             })
             .on('end', async function () {
-                console.log(`[${name}] ` + outputFileName + ': Processing finished !');
+                logger.log(`[${name}] ` + outputFileName + ': Processing finished !');
                 fs.unlinkSync(concatFilePath);
 
                 if (uploadToS3) {

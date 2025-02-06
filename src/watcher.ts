@@ -1,7 +1,9 @@
-
 import path from 'path';
-import { getSystemUsage } from './usage';
 import { downloadStream } from './stream';
+import { StreamStates } from './types';
+import stateTracker from './stateTracker';
+import { logger } from './utils/logger';
+import { getSystemUsage } from './usage';
 
 export async function checkM3U8Availability(m3u8Url: string): Promise<boolean> {
     let status;
@@ -34,23 +36,53 @@ interface StreamConfig {
 class StreamWatcher {
     private checkInterval: NodeJS.Timeout | null = null;
     private usageInterval: NodeJS.Timeout | null = null;
-    private debug: boolean = false;
+    private pingInterval: NodeJS.Timeout | null = null;
 
     constructor(
         private streams: StreamConfig[],
         private outputBaseDir: string,
         private checkIntervalMs: number = 5 * 60 * 1000, // 5 minutes
-        debug: boolean = false
+        _debug: boolean = false
     ) {
-        this.debug = debug;
-        if (this.debug) console.log('StreamWatcher initialized with', streams.length, 'streams');
+        this.initializeStates();
     }
 
-    private log(...args: any[]) {
-        if (this.debug) console.log('[StreamWatcher]', ...args);
+    log(_message: string) {
+        logger.log(_message);
     }
+
+    private initializeStates() {
+        const states: StreamStates = {};
+        this.streams.forEach(stream => {
+            states[stream.name] = {
+                isActive: false,
+                currentTimemark: '0',
+                lastActiveTime: null,
+                uploadedFiles: [],
+                pingHistory: new Array(96).fill(false), // 24h * 4 (15-min intervals)
+                url: stream.url
+            };
+        });
+        stateTracker.setValue(states);
+    }
+
+    private updatePingHistory() {
+        const states = stateTracker.getValue();
+        if (!states) return;
+
+        Object.keys(states).forEach(streamName => {
+            const state = states[streamName];
+            state.pingHistory.shift();
+            state.pingHistory.push(state.isActive);
+        });
+        stateTracker.setValue(states);
+    }
+
 
     private async processStream(stream: StreamConfig) {
+        const states = stateTracker.getValue();
+        if (!states) return;
+
         try {
             if (activeDownloads.has(stream.name)) {
                 return;
@@ -58,8 +90,10 @@ class StreamWatcher {
 
             this.log(`Checking availability for ${stream.name}`);
             const isAvailable = await checkM3U8Availability(stream.url);
+
+            states[stream.name].isActive = isAvailable;
             if (isAvailable) {
-                this.log(`Stream ${stream.name} is available. Starting download...`);
+                states[stream.name].lastActiveTime = new Date();
                 activeDownloads.add(stream.name);
 
                 const outputDir = path.join(this.outputBaseDir, stream.name, new Date().toISOString().replace(/[:]/g, '-'));
@@ -71,23 +105,36 @@ class StreamWatcher {
                         stream.url,
                         outputDir,
                         stream.uploadToS3,
-                        stream.chunkDuration
+                        stream.chunkDuration,
+                        (timemark: string) => {
+                            states[stream.name].currentTimemark = timemark;
+                            stateTracker.setValue(states);
+                        },
+                        (file: string) => {
+                            states[stream.name].uploadedFiles.push(file);
+                            stateTracker.setValue(states);
+                        }
                     );
-                    this.log(`Download completed for ${stream.name}`);
+
+                    // Clean up state after stream ends
+                    states[stream.name].currentTimemark = '0';
+                    states[stream.name].uploadedFiles = [];
+                    states[stream.name].isActive = false;
+                    stateTracker.setValue(states);
+
                     activeDownloads.delete(stream.name);
                 } catch (error) {
                     console.error(`Error downloading stream ${stream.name}:`, error);
-
+                    states[stream.name].isActive = false;
+                    stateTracker.setValue(states);
                     activeDownloads.delete(stream.name);
-                    // Schedule a quick retry for this specific stream
-                    setTimeout(() => this.processStream(stream), 30000); // Retry after 30 seconds
+                    setTimeout(() => this.processStream(stream), 30000);
                 }
-            } else {
-                this.log(`Stream ${stream.name} is not available`);
             }
         } catch (error) {
             console.error(`Error processing stream ${stream.name}:`, error);
-
+            states[stream.name].isActive = false;
+            stateTracker.setValue(states);
             activeDownloads.delete(stream.name);
         }
     }
@@ -95,7 +142,7 @@ class StreamWatcher {
     private async monitorSystemUsage() {
         try {
             const usage = await getSystemUsage();
-            console.log(`System Status - CPU: ${usage.cpu}%, Memory Used: ${usage.memory.usagePercentage}%`);
+            logger.log(`System Status - CPU: ${usage.cpu}%, Memory Used: ${usage.memory.usagePercentage}%`);
         } catch (error) {
             console.error('Error monitoring system usage:', error);
         }
@@ -129,6 +176,11 @@ class StreamWatcher {
         this.usageInterval = setInterval(() => {
             this.monitorSystemUsage();
         }, 60_000); // Every 15 seconds
+
+        // Set up ping history tracking
+        this.pingInterval = setInterval(() => {
+            this.updatePingHistory();
+        }, 15 * 60 * 1000); // Every 15 minutes
     }
 
     stop() {
@@ -140,6 +192,10 @@ class StreamWatcher {
         if (this.usageInterval) {
             clearInterval(this.usageInterval);
             this.usageInterval = null;
+        }
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
         }
     }
 }
