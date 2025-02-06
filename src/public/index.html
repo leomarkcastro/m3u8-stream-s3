@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Stream State Monitor</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .stream {
+        margin-bottom: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      .active {
+        background-color: #e6ffe6;
+      }
+      .inactive {
+        background-color: #ffe6e6;
+      }
+      .system-info {
+        margin-bottom: 20px;
+      }
+      .ping-history {
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Stream State Monitor</h1>
+    <div class="system-info">
+      <h2>System Usage</h2>
+      <div id="systemUsage"></div>
+    </div>
+    <div id="streams"></div>
+
+    <script>
+      function updateStatus() {
+        fetch("/api/status")
+          .then((response) => response.json())
+          .then((data) => {
+            // Update system usage
+            const systemHtml = `
+                        <p>CPU Usage: ${data.system.cpu}%</p>
+                        <p>Memory: ${data.system.memory.used}MB / ${data.system.memory.total}MB 
+                           (${data.system.memory.usagePercentage}%)</p>
+                    `;
+            document.getElementById("systemUsage").innerHTML = systemHtml;
+
+            // Update streams
+            const streamsHtml = Object.entries(data.states)
+              .map(
+                ([name, state]) => `
+                        <div class="stream ${
+                          state.active ? "active" : "inactive"
+                        }">
+                            <h3>${name}</h3>
+                            <p>Status: ${
+                              state.active ? "Active" : "Inactive"
+                            }</p>
+                            <p>Last Ping: ${new Date(
+                              state.lastPing
+                            ).toLocaleString()}</p>
+                            <p class="ping-history">History: ${
+                              state.pingHistory
+                            }</p>
+                        </div>
+                    `
+              )
+              .join("");
+            document.getElementById("streams").innerHTML = streamsHtml;
+          });
+      }
+
+      // Update immediately and then every 5 seconds
+      updateStatus();
+      setInterval(updateStatus, 5000);
+    </script>
+  </body>
+</html>
