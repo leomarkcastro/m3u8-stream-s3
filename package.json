@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "NODE_ENV=production ts-node -T src/index.ts",
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/public && cp -r src/public/* dist/public/",
     "serve": "node dist/index.js"
   },
   "keywords": [],
