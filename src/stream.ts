@@ -93,18 +93,41 @@ export async function downloadHLSTOMp4(
         persistent: true,
         usePolling: true,
         interval: 10_000,
+        ignored: (file, _stats) => Boolean(_stats?.isFile() && !file.endsWith('.mp4'))
+        // awaitWriteFinish: {
+        //     pollInterval: 1000,
+        //     stabilityThreshold: 10_000
+        // }
     });
 
-    watcher.on('add', async (filePath) => {
-        try {
-            // Delay to ensure the file is completely written
-            await new Promise(resolve => setTimeout(resolve, Math.floor(chunkDuration * 2.5) * 1000));
-            const buffer = await fs.promises.readFile(filePath);
-            onBuffer(buffer);
-        } catch (err) {
-            console.error('Error reading file buffer:', err);
-        }
-    });
+    // watcher.on('change', async (filePath) => {
+    //     try {
+    //         // Delay to ensure the file is completely written
+    //         await new Promise(resolve => setTimeout(resolve, Math.floor(chunkDuration * 2.5) * 1000));
+    //         const buffer = await fs.promises.readFile(filePath);
+    //         onBuffer(buffer);
+    //     } catch (err) {
+    //         console.error('Error reading file buffer:', err);
+    //     }
+    // });
+
+    watcher
+        .on('raw', async (_event, filePath) => {
+            // internal
+
+            if (filePath.endsWith('.mp4')) {
+                // console.log('Raw event info:', event, filePath);
+
+                try {
+                    const buffer = await fs.promises.readFile(filePath);
+                    onBuffer(buffer);
+                } catch (err) {
+                    console.error('Error reading file buffer:', err);
+                }
+            }
+
+        });
+
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
