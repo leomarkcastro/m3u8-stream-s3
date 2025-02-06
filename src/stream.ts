@@ -253,11 +253,13 @@ export async function combineStreams(
         let cmd = ffmpegCommand
             .on('error', function (err) {
                 logger.log(`[${name}] An error occurred: ` + err.message);
+                console.error('An error occurred: ' + err.message);
                 fs.unlinkSync(concatFilePath);
                 resolve();
             })
             .on('end', async function () {
                 logger.log(`[${name}] ` + outputFileName + ': Processing finished !');
+                console.log(outputFileName + ': Processing finished !');
                 fs.unlinkSync(concatFilePath);
 
                 if (uploadToS3) {

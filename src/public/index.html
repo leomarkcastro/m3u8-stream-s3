@@ -36,27 +36,8 @@
         word-break: break-all;
         color: #0066cc;
       }
-      .video-container {
-        margin-top: 10px;
-        display: none;
-      }
-      .video-container.visible {
-        display: block;
-      }
-      .toggle-video {
-        background-color: #4caf50;
-        border: none;
-        color: white;
-        padding: 8px 16px;
-        text-align: center;
-        cursor: pointer;
-        border-radius: 4px;
-      }
-      .toggle-video:hover {
-        background-color: #45a049;
-      }
+      /* Remove video-related CSS */
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   </head>
   <body>
     <h1>Stream State Monitor</h1>
@@ -67,49 +48,32 @@
     <div id="streams"></div>
 
     <script>
-      function initializeHLS(videoElement, url) {
-        if (Hls.isSupported()) {
-          const hls = new Hls();
-          hls.loadSource(url);
-          hls.attachMedia(videoElement);
-        }
-        // For browsers with native HLS support (Safari)
-        else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
-          videoElement.src = url;
-        }
-      }
-
-      function toggleVideo(streamId) {
-        const container = document.getElementById(`video-${streamId}`);
-        const button = document.getElementById(`toggle-${streamId}`);
-        if (container.classList.contains("visible")) {
-          container.classList.remove("visible");
-          button.textContent = "Show Video";
-        } else {
-          container.classList.add("visible");
-          button.textContent = "Hide Video";
-          const videoElement = document.querySelector(
-            `#video-${streamId} video`
-          );
-          const url = videoElement.dataset.streamUrl;
-          initializeHLS(videoElement, url);
-        }
-      }
-
       function updateStatus() {
         fetch("/api/status")
           .then((response) => response.json())
           .then((data) => {
+            // Calculate active rooms
+            const activeRooms = Object.values(data.states).filter(
+              (state) => state.isActive
+            ).length;
+
             // Update system usage
             const systemHtml = `
                         <p>CPU Usage: ${data.system.cpu}%</p>
                         <p>Memory: ${data.system.memory.used}MB / ${data.system.memory.total}MB 
                            (${data.system.memory.usagePercentage}%)</p>
+                        <p>Active Rooms: ${activeRooms}</p>
                     `;
             document.getElementById("systemUsage").innerHTML = systemHtml;
 
+            // Sort streams by active status
+            const sortedStreams = Object.entries(data.states).sort((a, b) => {
+              if (a[1].isActive === b[1].isActive) return 0;
+              return a[1].isActive ? -1 : 1;
+            });
+
             // Update streams
-            const streamsHtml = Object.entries(data.states)
+            const streamsHtml = sortedStreams
               .map(
                 ([name, state]) => `
                         <div class="stream ${
@@ -126,16 +90,6 @@
                               state.currentTimemark || "N/A"
                             }</p>
                             <p class="url">URL: ${state.url || "N/A"}</p>
-                            ${
-                              state.url
-                                ? `
-                              <button class="toggle-video" id="toggle-${name}" onclick="toggleVideo('${name}')">Show Video</button>
-                              <div class="video-container" id="video-${name}">
-                                <video width="100%" controls data-stream-url="${state.url}"></video>
-                              </div>
-                            `
-                                : ""
-                            }
                             <div class="uploaded-files">
                                 <p>Uploaded Files:</p>
                                 ${
