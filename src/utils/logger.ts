@@ -1,3 +1,5 @@
+import { config } from "../config";
+
 type LogEntry = {
     timestamp: Date;
     message: string;
@@ -13,8 +15,10 @@ class Logger {
             message,
             data
         };
-        this.logs.push(entry);
-        console.log(`${message}`, data || '');
+        if (config.LOGS) {
+            console.log(`${message}`, data || '');
+            this.logs.push(entry);
+        }
     }
 
     getLogs(): LogEntry[] {

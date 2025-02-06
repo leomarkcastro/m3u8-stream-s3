@@ -3,6 +3,7 @@ dotenv.config();
 
 export const config = {
     SYSTEM: process.env.SYSTEM || 'local',
+    LOGS: (process.env.LOGS || 'true') === 'true',
     AWS: {
         ACCESS_KEY: process.env.AWS_ACCESS_KEY || '',
         SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
