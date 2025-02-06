@@ -89,7 +89,11 @@ export async function downloadHLSTOMp4(
     const { path: tmpDir, cleanup } = await dir({ unsafeCleanup: true });
 
     // Watch for new files in the temporary directory
-    const watcher = chokidar.watch(tmpDir, { persistent: true });
+    const watcher = chokidar.watch(tmpDir, {
+        persistent: true,
+        usePolling: true,
+        interval: 10_000,
+    });
 
     watcher.on('add', async (filePath) => {
         try {
