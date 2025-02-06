@@ -76,7 +76,7 @@ export async function downloadHLSTOMp4(
     chunkDuration: number = 5, // Default chunk duration in seconds
     onBuffer: (buffer: Buffer) => Promise<void>,
     onTimeUpdate: (timemark: string) => void,
-    onEnd: (streamFiles: string[]) => Promise<void>,
+    onEnd: (directory: string, streamFiles: string[]) => Promise<void>,
     preferredQuality: 'highest' | 'lowest' | number = 'lowest'
 ): Promise<void> {
     const selectedStreamUrl = await selectStreamQuality(name, m3u8Url, preferredQuality);
@@ -134,7 +134,7 @@ export async function downloadHLSTOMp4(
         await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
-        await onEnd(streamFiles);
+        await onEnd(tmpDir, streamFiles);
         // sleep for 5 minutes before cleanup
         await cleanup();
     });
@@ -143,7 +143,7 @@ export async function downloadHLSTOMp4(
         await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
-        await onEnd(streamFiles);
+        await onEnd(tmpDir, streamFiles);
         await cleanup();
     });
     ffmpegCommand.on('progress', (progress) => {
@@ -202,7 +202,7 @@ export function downloadStream(
                 }
             },
             onTimeUpdate,
-            async (_streamFiles) => {
+            async (tmpDir, _streamFiles) => {
                 try {
                     let fileContents = fs.readdirSync(outputDir);
                     fileContents = fileContents.sort();
@@ -270,7 +270,11 @@ export async function combineStreams(
             });
 
         cmd.input(concatFilePath)
-            .inputOptions(['-f', 'concat', '-safe', '0'])
+            .inputOptions([
+                '-f',
+                'concat',
+                // '-safe', '1'
+            ])
             .outputOptions([
                 '-c:v', 'copy',
                 '-c:a', 'copy',
