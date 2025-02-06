@@ -237,9 +237,17 @@ export async function combineStreams(
         }
 
         // Create a concat file
-        const concatFilePath = path.join(outputDir, 'concat.txt');
+        const concatFilePath = path.join(__dirname, outputDir, 'concat.txt')
+            // convert backslashes to forward slashes
+            .replace(/\\/g, '/');
         const fileContent = streamFiles
-            .map(file => `file '${path.join(outputDir, file)}'`)
+            .map(file => {
+                const t = `file '${path.join(__dirname, outputDir, file)}'`
+                    // convert backslashes to forward slashes
+                    .replace(/\\/g, '/');
+                return t;
+
+            })
             .join('\n');
         fs.writeFileSync(concatFilePath, fileContent);
 
@@ -273,7 +281,7 @@ export async function combineStreams(
             .inputOptions([
                 '-f',
                 'concat',
-                // '-safe', '1'
+                '-safe', '0'
             ])
             .outputOptions([
                 '-c:v', 'copy',
