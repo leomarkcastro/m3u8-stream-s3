@@ -1,0 +1,35 @@
+{
+  "name": "lite-stream-transcriber",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "NODE_ENV=production ts-node -T src/index.ts",
+    "build": "tsc",
+    "serve": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "assemblyai": "^4.7.0",
+    "aws-sdk": "^2.1692.0",
+    "chokidar": "^4.0.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fluent-ffmpeg": "^2.1.3",
+    "os-utils": "^0.0.14",
+    "speechmatics": "^4.0.0",
+    "tmp-promise": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/fluent-ffmpeg": "^2.1.26",
+    "@types/node": "^22.10.7",
+    "@types/os-utils": "^0.0.4"
+  }
+}
