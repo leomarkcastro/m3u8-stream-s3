@@ -130,23 +130,21 @@ export async function downloadHLSTOMp4(
     ffmpegCommand.output(output);
     ffmpegCommand.on('end', async () => {
         logger.log('ffmpeg end');
+        // wait for 1 minute before closing the watcher
+        await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(streamFiles);
         // sleep for 5 minutes before cleanup
-        setTimeout(async () => {
-            await cleanup();
-        }, 5 * 60 * 1_000);
+        await cleanup();
     });
     ffmpegCommand.on('error', async (err) => {
         logger.log('ffmpeg error', err);
+        await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
         await watcher.close();
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(streamFiles);
-        // sleep for 5 minutes before cleanup
-        setTimeout(async () => {
-            await cleanup();
-        }, 5 * 60 * 1_000);
+        await cleanup();
     });
     ffmpegCommand.on('progress', (progress) => {
         logger.log(`[${name}] Processing: ${progress.timemark}ms done`);
