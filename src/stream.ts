@@ -6,7 +6,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { dir } from 'tmp-promise';
 import chokidar from 'chokidar';
 
-async function selectStreamQuality(masterM3u8Url: string, preferredQuality: 'highest' | 'lowest' | number = 'lowest'): Promise<string> {
+async function selectStreamQuality(name: string, masterM3u8Url: string, preferredQuality: 'highest' | 'lowest' | number = 'lowest'): Promise<string> {
     try {
         // console.log(`Fetching master playlist from: ${masterM3u8Url}`);
         const response = await fetch(masterM3u8Url, {
@@ -52,10 +52,10 @@ async function selectStreamQuality(masterM3u8Url: string, preferredQuality: 'hig
         let selectedStream: string;
         if (preferredQuality === 'highest') {
             selectedStream = streamUrls[streamUrls.length - 1].url;
-            console.log(`Selected highest quality: ${streamUrls[streamUrls.length - 1].bandwidth / 1000}kbps`);
+            console.log(`[${name}] Selected highest quality: ${streamUrls[streamUrls.length - 1].bandwidth / 1000}kbps`);
         } else if (preferredQuality === 'lowest') {
             selectedStream = streamUrls[0].url;
-            console.log(`Selected lowest quality: ${streamUrls[0].bandwidth / 1000}kbps`);
+            console.log(`[${name}] Selected lowest quality: ${streamUrls[0].bandwidth / 1000}kbps`);
         } else {
             // Find the closest matching bandwidth
             const closest = streamUrls.reduce((prev, curr) => {
@@ -64,25 +64,26 @@ async function selectStreamQuality(masterM3u8Url: string, preferredQuality: 'hig
                     : prev;
             });
             selectedStream = closest.url;
-            console.log(`Selected closest quality to ${preferredQuality / 1000}kbps: ${closest.bandwidth / 1000}kbps`);
+            console.log(`[${name}] Selected closest quality to ${preferredQuality / 1000}kbps: ${closest.bandwidth / 1000}kbps`);
         }
 
         return selectedStream;
     } catch (error) {
         console.error('Error parsing master playlist:', error);
-        console.log('Falling back to original URL');
+        console.log(`[${name}]  Falling back to original URL`);
         return masterM3u8Url;
     }
 }
 
 export async function downloadHLSTOMp4(
+    name: string,
     m3u8Url: string,
     chunkDuration: number = 5, // Default chunk duration in seconds
     onBuffer: (buffer: Buffer) => Promise<void>,
     onEnd: (streamFiles: string[]) => Promise<void>,
     preferredQuality: 'highest' | 'lowest' | number = 'lowest'
 ): Promise<void> {
-    const selectedStreamUrl = await selectStreamQuality(m3u8Url, preferredQuality);
+    const selectedStreamUrl = await selectStreamQuality(name, m3u8Url, preferredQuality);
 
     // Create a temporary directory
     const { path: tmpDir, cleanup } = await dir({ unsafeCleanup: true });
@@ -135,10 +136,14 @@ export async function downloadHLSTOMp4(
         await onEnd(streamFiles);
         await cleanup();
     });
+    ffmpegCommand.on('progress', (progress) => {
+        console.log(`[${name}] Processing: ${progress.timemark}ms done`);
+    });
     ffmpegCommand.run();
 }
 
 export function downloadStream(
+    name: string,
     streamUrl: string,
     outputDir: string,
     uploadToS3: boolean = false,
@@ -158,6 +163,7 @@ export function downloadStream(
         fs.mkdirSync(outputDir, { recursive: true });
 
         downloadHLSTOMp4(
+            name,
             streamUrl,
             chunkDuration,
             async (buffer) => {
@@ -167,17 +173,17 @@ export function downloadStream(
 
                 try {
                     await fs.promises.writeFile(localPath, buffer);
-                    console.log(`Saved stream segment to ${localPath}`);
+                    console.log(`[${name}] Local Save ${localPath}`);
 
                     if (uploadToS3) {
                         // replace backslashes with forward slashes
                         let s3Path = outputDir.replace(/\\/g, '/').replace('recordings/', '');
                         const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${s3Path}/${filename}`;
                         await uploadFile(s3ChunkPath, localPath);
-                        console.log(`Uploaded chunk to S3: ${s3ChunkPath}`);
+                        console.log(`[${name}] S3 Upload ${s3ChunkPath}`);
                     }
                 } catch (err) {
-                    console.error('Error saving/uploading file:', err);
+                    console.error(`[${name}] Error saving/uploading file:`, err);
                     reject(err);
                 }
             },
@@ -185,7 +191,7 @@ export function downloadStream(
                 try {
                     let fileContents = fs.readdirSync(outputDir);
                     fileContents = fileContents.sort();
-                    await combineStreams(fileContents, outputDir, 'complete.mp4', uploadToS3);
+                    await combineStreams(name, fileContents, outputDir, 'complete.mp4', uploadToS3);
 
                     // delete all files in the output directory
                     for (const file of fileContents) {
@@ -203,6 +209,7 @@ export function downloadStream(
 
 
 export async function combineStreams(
+    name: string,
     streamFiles: string[],
     outputDir: string,
     outputFileName: string = 'output.mp4', // Add default value
@@ -228,12 +235,12 @@ export async function combineStreams(
 
         let cmd = ffmpegCommand
             .on('error', function (err) {
-                console.log('An error occurred: ' + err.message);
+                console.log(`[${name}] An error occurred: ` + err.message);
                 fs.unlinkSync(concatFilePath);
                 resolve();
             })
             .on('end', async function () {
-                console.log(outputFileName + ': Processing finished !');
+                console.log(`[${name}] ` + outputFileName + ': Processing finished !');
                 fs.unlinkSync(concatFilePath);
 
                 if (uploadToS3) {

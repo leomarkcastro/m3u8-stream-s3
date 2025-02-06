@@ -67,6 +67,7 @@ class StreamWatcher {
 
                 try {
                     await downloadStream(
+                        stream.name,
                         stream.url,
                         outputDir,
                         stream.uploadToS3,
