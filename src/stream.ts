@@ -6,6 +6,20 @@ import ffmpeg from 'fluent-ffmpeg';
 import { dir } from 'tmp-promise';
 import chokidar from 'chokidar';
 import { logger } from './utils/logger';
+import { globalTracker } from './stateTracker';
+
+// size to KB, MB conversion
+function formatBytes(bytes: number, decimals = 2): string {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 async function selectStreamQuality(name: string, masterM3u8Url: string, preferredQuality: 'highest' | 'lowest' | number = 'lowest'): Promise<string> {
     try {
@@ -273,6 +287,15 @@ export async function combineStreams(
                 if (uploadToS3) {
                     const dirName = outputDir.replace(/\\/g, '/').replace('recordings/', '');
                     const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${dirName}/${outputFileName}`;
+                    let curFiles = globalTracker.getValue()?.uploadedFiles ?? [];
+                    globalTracker.setValue({
+                        uploadedFiles: [...curFiles, {
+                            name: name,
+                            createdAt: new Date().toISOString(),
+                            url: s3FinalPath,
+                            size: formatBytes(fs.statSync(path.join(outputDir, outputFileName)).size, 2),
+                        }]
+                    })
                     await uploadFile(s3FinalPath, path.join(outputDir, outputFileName));
                 }
 

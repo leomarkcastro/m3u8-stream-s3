@@ -1,5 +1,5 @@
 import express from 'express';
-import stateTracker from './stateTracker';
+import stateTracker, { globalTracker } from './stateTracker';
 import { logger } from './utils/logger';
 import { getSystemUsage } from './usage';
 import path from 'path';
@@ -25,6 +25,7 @@ app.get('/', (_req, res) => {
 app.get('/api/status', async (_req, res) => {
     const states = JSON.parse(JSON.stringify(stateTracker.getValue()));
     const systemUsage = await getSystemUsage();
+    const globalState = globalTracker.getValue();
 
     if (states) {
         for (const streamName in states) {
@@ -35,21 +36,8 @@ app.get('/api/status', async (_req, res) => {
     res.json({
         timestamp: new Date().toISOString(),
         states: states || {},
-        system: systemUsage
-    });
-});
-
-app.get('/state', (_req, res) => {
-    const states = JSON.parse(JSON.stringify(stateTracker.getValue()));
-    if (states) {
-        for (const streamName in states) {
-            // @ts-ignore
-            states[streamName].pingHistory = getPingHistoryString(streamName);
-        }
-    }
-    res.json({
-        timestamp: new Date().toISOString(),
-        states: states || {}
+        system: systemUsage,
+        global: globalState,
     });
 });
 

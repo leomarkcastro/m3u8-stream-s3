@@ -11,3 +11,12 @@ export interface StreamState {
 export interface StreamStates {
     [streamName: string]: StreamState;
 }
+
+export interface GlobalState {
+    uploadedFiles: {
+        name: string;
+        url: string;
+        createdAt: string;
+        size: string;
+    }[];
+}
