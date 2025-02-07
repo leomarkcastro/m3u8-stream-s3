@@ -11,9 +11,12 @@ class StateTracker<T> {
         StateTracker.instance = this;
     }
 
-    public static getInstance<T>(): StateTracker<T> {
+    public static getInstance<T>(
+        startingValue: T
+    ): StateTracker<T> {
         if (!StateTracker.instance) {
             StateTracker.instance = new StateTracker<T>();
+            StateTracker.instance.value = startingValue;
         }
         return StateTracker.instance;
     }
@@ -27,4 +30,6 @@ class StateTracker<T> {
     }
 }
 // Export a default instance
-export default StateTracker.getInstance<GlobalState>();
+export default StateTracker.getInstance<GlobalState>({
+    uploadedFiles: []
+});
