@@ -236,13 +236,15 @@ export async function combineStreams(
             fs.unlinkSync(path.join(outputDir, outputFileName));
         }
 
+        let dir = __dirname.replace(/\\/g, '/').replace('/dist', '');
+
         // Create a concat file
-        const concatFilePath = path.join(__dirname, outputDir, 'concat.txt')
+        const concatFilePath = path.join(dir, outputDir, 'concat.txt')
             // convert backslashes to forward slashes
             .replace(/\\/g, '/');
         const fileContent = streamFiles
             .map(file => {
-                const t = `file '${path.join(__dirname, outputDir, file)}'`
+                const t = `file '${path.join(dir, outputDir, file)}'`
                     // convert backslashes to forward slashes
                     .replace(/\\/g, '/');
                 return t;
