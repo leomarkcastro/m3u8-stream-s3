@@ -1,8 +1,9 @@
 import express from 'express';
-import stateTracker, { globalTracker } from './stateTracker';
+import stateTracker from './stateTracker';
 import { logger } from './utils/logger';
 import { getSystemUsage } from './usage';
 import path from 'path';
+import globalTracker from './globalTracker';
 
 const app = express();
 const port = process.env.PORT || 3000;

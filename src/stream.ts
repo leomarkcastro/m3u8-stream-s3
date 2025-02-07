@@ -6,7 +6,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { dir } from 'tmp-promise';
 import chokidar from 'chokidar';
 import { logger } from './utils/logger';
-import { globalTracker } from './stateTracker';
+import globalTracker from './globalTracker';
 
 // size to KB, MB conversion
 function formatBytes(bytes: number, decimals = 2): string {

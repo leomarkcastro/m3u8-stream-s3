@@ -1,4 +1,4 @@
-import { StreamStates } from './types';
+import { GlobalState } from './types';
 
 class StateTracker<T> {
     private static instance: StateTracker<any> | null = null;
@@ -27,4 +27,4 @@ class StateTracker<T> {
     }
 }
 // Export a default instance
-export default StateTracker.getInstance<StreamStates>();
+export default StateTracker.getInstance<GlobalState>();
