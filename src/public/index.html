@@ -159,8 +159,12 @@
                                 ? `<ul class="list-group list-group-flush">
                                     ${state.uploadedFiles
                                       .map(
-                                        (file) =>
-                                          `<li class="list-group-item">${file}</li>`
+                                        (file, index) =>
+                                          `<li class="list-group-item">
+                                            <a href="${file}" target="_blank" class="text-decoration-none">
+                                              [${index + 1}]
+                                            </a>
+                                          </li>`
                                       )
                                       .join("")}
                                    </ul>`
