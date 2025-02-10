@@ -16,6 +16,12 @@
       }
       .url {
         word-break: break-all;
+        max-height: 3em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        text-overflow: ellipsis;
       }
       .file-info {
         font-size: 0.9em;
@@ -143,6 +149,9 @@
                           }</p>
                         </div>
                         <div class="col-md-6">
+                          <p class="ping-history mt-3 small">${
+                            state.pingHistory
+                          }</p>
                           <div class="uploaded-files">
                             <p class="mb-2">Uploaded Files:</p>
                             ${
@@ -158,9 +167,6 @@
                                 : '<p class="text-muted">No files uploaded</p>'
                             }
                           </div>
-                          <p class="ping-history mt-3 small">${
-                            state.pingHistory
-                          }</p>
                         </div>
                       </div>
                     </div>

@@ -206,9 +206,9 @@ export function downloadStream(
                         // replace backslashes with forward slashes
                         let s3Path = outputDir.replace(/\\/g, '/').replace('recordings/', '');
                         const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${s3Path}/${filename}`;
-                        await uploadFile(s3ChunkPath, localPath);
-                        logger.log(`[${name}] S3 Upload ${s3ChunkPath}`);
-                        onFileUpload?.(s3ChunkPath);
+                        const urlUpload = await uploadFile(s3ChunkPath, localPath);
+                        logger.log(`[${name}] S3 Upload ${urlUpload}`);
+                        onFileUpload?.(urlUpload);
                     }
                 } catch (err) {
                     console.error(`[${name}] Error saving/uploading file:`, err);
@@ -288,15 +288,15 @@ export async function combineStreams(
                     const dirName = outputDir.replace(/\\/g, '/').replace('recordings/', '');
                     const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${dirName}/${outputFileName}`;
                     let curFiles = globalTracker.getValue()?.uploadedFiles ?? [];
+                    const uploadedFileUrl = await uploadFile(s3FinalPath, path.join(outputDir, outputFileName));
                     globalTracker.setValue({
                         uploadedFiles: [...curFiles, {
                             name: name,
                             createdAt: new Date().toISOString(),
-                            url: s3FinalPath,
+                            url: uploadedFileUrl,
                             size: formatBytes(fs.statSync(path.join(outputDir, outputFileName)).size, 2),
                         }]
                     })
-                    await uploadFile(s3FinalPath, path.join(outputDir, outputFileName));
                 }
 
                 resolve();
