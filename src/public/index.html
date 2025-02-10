@@ -27,6 +27,18 @@
         font-size: 0.9em;
         color: #666;
       }
+      .file-chain {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .file-chain-item {
+        background: #f8f9fa;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.9em;
+      }
     </style>
   </head>
   <body class="container py-4">
@@ -156,18 +168,16 @@
                             <p class="mb-2">Uploaded Files:</p>
                             ${
                               state.uploadedFiles
-                                ? `<ul class="list-group list-group-flush">
+                                ? `<div class="file-chain">
                                     ${state.uploadedFiles
                                       .map(
                                         (file, index) =>
-                                          `<li class="list-group-item">
-                                            <a href="${file}" target="_blank" class="text-decoration-none">
-                                              [${index + 1}]
-                                            </a>
-                                          </li>`
+                                          `<a href="${file}" target="_blank" class="file-chain-item text-decoration-none">
+                                            [${index + 1}]
+                                          </a>`
                                       )
                                       .join("")}
-                                   </ul>`
+                                   </div>`
                                 : '<p class="text-muted">No files uploaded</p>'
                             }
                           </div>
