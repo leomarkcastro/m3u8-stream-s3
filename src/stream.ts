@@ -122,7 +122,7 @@ export async function downloadHLSTOMp4(
         });
 
         // check if the first file on list is locked(being written to)
-        const recentFiles = streamFiles.sort((a, b) => b.ctime - a.ctime).slice(0, 1);
+        const recentFiles = streamFiles.sort((a, b) => a.ctime - b.ctime).slice(0, 1);
 
         let isReady = false;
         for (const file of recentFiles) {
@@ -148,7 +148,7 @@ export async function downloadHLSTOMp4(
             }
         }
 
-    }, 5 * 60 * 1_000); // check every 6 minutes
+    }, 2 * 60 * 1_000); // check every 6 minutes
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
