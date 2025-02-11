@@ -5,6 +5,7 @@ import { uploadFile } from './s3';
 import ffmpeg from 'fluent-ffmpeg';
 import { logger } from './utils/logger';
 import globalTracker from './globalTracker';
+import getVideoDurationInSeconds from 'get-video-duration';
 
 // size to KB, MB conversion
 function formatBytes(bytes: number, decimals = 2): string {
@@ -122,33 +123,46 @@ export async function downloadHLSTOMp4(
         });
 
         // check if the first file on list is locked(being written to)
-        const recentFiles = streamFiles.sort((a, b) => a.ctime - b.ctime).slice(0, 1);
+        const recentFiles = streamFiles.sort((a, b) => a.ctime - b.ctime);
 
-        let isReady = false;
+        let toProcess: {
+            name: string;
+            mtime: number;
+            ctime: number;
+        }[] = [];
+
         for (const file of recentFiles) {
+            let isReady = false;
             try {
                 // Try to open file with exclusive flag
                 let f = fs.openSync(file.name, 'r+');
-                isReady = true;
                 fs.closeSync(f);
+                isReady = isReady || true;
+            } catch (error) { }
 
-            } catch (error) {
+            let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
+            if (videoDuration >= chunkDuration) {
+                isReady = isReady || true;
+            }
+
+            if (isReady) {
+                toProcess.push(file);
             }
         }
 
         // get the buffer of that file and call onBuffer
-        if (isReady) {
-            for (const file of recentFiles) {
-                const buffer = fs.readFileSync(path.join(tmpDir, file.name));
-                onFileReady(file.name, buffer.length);
-                await onBuffer(buffer);
 
-                // delete the temporary file after processing
-                fs.unlinkSync(path.join(tmpDir, file.name));
-            }
+        for (const file of toProcess) {
+            const buffer = fs.readFileSync(path.join(tmpDir, file.name));
+            onFileReady(file.name, buffer.length);
+            await onBuffer(buffer);
+
+            // delete the temporary file after processing
+            fs.unlinkSync(path.join(tmpDir, file.name));
         }
 
-    }, 2 * 60 * 1_000); // check every 6 minutes
+
+    }, 1 * 60 * 1_000); // check every 6 minutes
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
