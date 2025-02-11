@@ -116,6 +116,7 @@ class StreamWatcher {
                     states[stream.name].currentTimemark = '0';
                     states[stream.name].uploadedFiles = [];
                     states[stream.name].isActive = false;
+                    states[stream.name].fileLogs = [];
                     stateTracker.setValue(states);
 
                     activeDownloads.delete(stream.name);
