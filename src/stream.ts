@@ -3,7 +3,6 @@ import path from 'path';
 import { config } from './config';
 import { uploadFile } from './s3';
 import ffmpeg from 'fluent-ffmpeg';
-import { dir } from 'tmp-promise';
 import { logger } from './utils/logger';
 import globalTracker from './globalTracker';
 
@@ -101,8 +100,17 @@ export async function downloadHLSTOMp4(
 ): Promise<void> {
     const selectedStreamUrl = await selectStreamQuality(name, m3u8Url, preferredQuality);
 
-    // Create a temporary directory
-    const { path: tmpDir, cleanup } = await dir({ unsafeCleanup: true });
+    // create a new repository named temp/ (creates a new directory in the system's temp directory), using fs
+    const tmpDir = path.join(__dirname, 'temp', name);
+    if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+    }
+
+    async function cleanup() {
+        // only clear the specific directory of name, not the entire temp directory
+        fs.rmdirSync(tmpDir, { recursive: true });
+    }
+
 
     const fileWatcherInterval = setInterval(async () => {
         // get files from tmpDir along with their last modified time
