@@ -4,7 +4,6 @@ import { config } from './config';
 import { uploadFile } from './s3';
 import ffmpeg from 'fluent-ffmpeg';
 import { dir } from 'tmp-promise';
-import chokidar from 'chokidar';
 import { logger } from './utils/logger';
 import globalTracker from './globalTracker';
 
@@ -96,6 +95,7 @@ export async function downloadHLSTOMp4(
     chunkDuration: number = 5, // Default chunk duration in seconds
     onBuffer: (buffer: Buffer) => Promise<void>,
     onTimeUpdate: (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => void,
+    onFileReady: (file: string, fileSize: number) => void,
     onEnd: (directory: string, streamFiles: string[]) => Promise<void>,
     preferredQuality: 'highest' | 'lowest' | number = 'lowest'
 ): Promise<void> {
@@ -104,29 +104,34 @@ export async function downloadHLSTOMp4(
     // Create a temporary directory
     const { path: tmpDir, cleanup } = await dir({ unsafeCleanup: true });
 
-    // Watch for new files in the temporary directory
-    const watcher = chokidar.watch(tmpDir, {
-        persistent: true,
-        // usePolling: true,
-        interval: 10_000,
-        ignored: (file, _stats) => Boolean(_stats?.isFile() && !file.endsWith('.mp4')),
-        awaitWriteFinish: {
-            pollInterval: 10_000,
-            stabilityThreshold: 1 * 60 * 1_000 // wait 1 minute after last write
-        },
-        atomic: true
-    });
+    const fileWatcherInterval = setInterval(async () => {
+        // get files from tmpDir along with their last modified time
+        const streamFiles = fs.readdirSync(tmpDir).map(file => {
+            return {
+                name: file,
+                mtime: fs.statSync(path.join(tmpDir, file)).mtime.getTime(),
+                ctime: fs.statSync(path.join(tmpDir, file)).ctime.getTime()
+            };
+        });
 
-    watcher.on('add', async (filePath) => {
-        logger.log(`[${name}] New file detected: ${filePath}`);
-        try {
-            const buffer = await fs.promises.readFile(filePath);
-            onBuffer(buffer);
-        } catch (err) {
-            console.error('Error reading file buffer:', err);
+        // filter out files that have been modified in the last 5 minutes
+        const recentFiles = streamFiles.filter(file => {
+            // create and modify time should be within the last 5 minutes
+            const currentTime = new Date().getTime();
+            return (currentTime - file.mtime < 5 * 60 * 1_000) && (currentTime - file.ctime < 5 * 60 * 1_000);
+        });
+
+        // get the buffer of that file and call onBuffer
+        for (const file of recentFiles) {
+            const buffer = fs.readFileSync(path.join(tmpDir, file.name));
+            onFileReady(file.name, buffer.length);
+            await onBuffer(buffer);
+
+            // delete the temporary file after processing
+            fs.unlinkSync(path.join(tmpDir, file.name));
         }
-    });
 
+    }, 90 * 1_000); // check every 90 seconds
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
@@ -151,8 +156,8 @@ export async function downloadHLSTOMp4(
     ffmpegCommand.on('end', async () => {
         logger.log('ffmpeg end');
         // wait for 1 minute before closing the watcher
-        await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
-        await watcher.close();
+        await new Promise((resolve) => setTimeout(resolve, 7 * 60 * 1_000));
+        clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(tmpDir, streamFiles);
         // sleep for 5 minutes before cleanup
@@ -160,8 +165,8 @@ export async function downloadHLSTOMp4(
     });
     ffmpegCommand.on('error', async (err) => {
         logger.log('ffmpeg error', err);
-        await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1_000));
-        await watcher.close();
+        await new Promise((resolve) => setTimeout(resolve, 7 * 60 * 1_000));
+        clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(tmpDir, streamFiles);
         await cleanup();
@@ -180,6 +185,7 @@ export function downloadStream(
     uploadToS3: boolean = false,
     chunkDuration: number = 60,
     onTimeUpdate: (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => void,
+    onFileUpdate: (file: string, fileSize: number) => void,
     onFileUpload?: (file: string) => void
 ): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -222,6 +228,7 @@ export function downloadStream(
                 }
             },
             onTimeUpdate,
+            onFileUpdate,
             async (tmpDir, _streamFiles) => {
                 try {
                     let fileContents = fs.readdirSync(outputDir);

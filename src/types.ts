@@ -2,6 +2,7 @@
 export interface StreamState {
     isActive: boolean;
     currentTimemark: string;
+    fileLogs: string[];
     lastActiveTime: Date | null;
     uploadedFiles: string[];
     pingHistory: boolean[];

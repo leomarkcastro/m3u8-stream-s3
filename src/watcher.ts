@@ -65,6 +65,7 @@ class StreamWatcher {
                 isActive: false,
                 currentTimemark: '0',
                 lastActiveTime: null,
+                fileLogs: [],
                 uploadedFiles: [],
                 pingHistory: new Array(96).fill(false), // 24h * 4 (15-min intervals)
                 url: stream.url
@@ -115,6 +116,14 @@ class StreamWatcher {
                         stream.chunkDuration,
                         (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => {
                             states[stream.name].currentTimemark = `${args.timemark} (${args.currentFps} fps) @ ${bytesToSize(args.frames)}`;
+                            stateTracker.setValue(states);
+                        },
+                        (file: string, size: number) => {
+                            states[stream.name].fileLogs.push(`${file} - ${bytesToSize(size)}`);
+                            // Limit file logs to 10
+                            if (states[stream.name].fileLogs.length > 10) {
+                                states[stream.name].fileLogs.shift();
+                            }
                             stateTracker.setValue(states);
                         },
                         (file: string) => {

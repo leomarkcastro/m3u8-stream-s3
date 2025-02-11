@@ -39,6 +39,17 @@
         border-radius: 1rem;
         font-size: 0.9em;
       }
+      .file-logs {
+        font-size: 0.85em;
+        color: #666;
+        background: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+      }
+      .file-log-entry {
+        margin-bottom: 0.25rem;
+      }
     </style>
   </head>
   <body class="container py-4">
@@ -159,6 +170,15 @@
                           <p class="mb-2 url text-primary">${
                             state.url || "N/A"
                           }</p>
+                          <div class="file-logs">
+                            <p class="mb-2"><strong>Recent File Logs:</strong></p>
+                            ${state.fileLogs
+                              .map(
+                                (log) =>
+                                  `<div class="file-log-entry">${log}</div>`
+                              )
+                              .join("")}
+                          </div>
                         </div>
                         <div class="col-md-6">
                           <p class="ping-history mt-3 small">${
