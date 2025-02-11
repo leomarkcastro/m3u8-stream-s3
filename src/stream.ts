@@ -142,8 +142,13 @@ export async function downloadHLSTOMp4(
 
             try {
                 let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
-                onFileReady(file.name + `[secs]`, videoDuration);
-                if (videoDuration >= (chunkDuration - 1)) {
+
+                let actualDuration = Math.ceil(videoDuration);
+                let percentage = Math.floor(videoDuration / chunkDuration * 100);
+
+                onFileReady(file.name + `[${actualDuration}/${chunkDuration}] (${percentage}%)`, 0);
+
+                if (actualDuration >= chunkDuration) {
                     isReady = isReady || true;
                 }
             } catch (err) { }
