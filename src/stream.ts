@@ -140,10 +140,12 @@ export async function downloadHLSTOMp4(
                 isReady = isReady || true;
             } catch (error) { }
 
-            let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
-            if (videoDuration >= chunkDuration) {
-                isReady = isReady || true;
-            }
+            try {
+                let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
+                if (videoDuration >= chunkDuration) {
+                    isReady = isReady || true;
+                }
+            } catch (err) { }
 
             if (isReady) {
                 toProcess.push(file);
