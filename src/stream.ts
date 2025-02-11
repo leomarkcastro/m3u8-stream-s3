@@ -118,7 +118,7 @@ export async function downloadHLSTOMp4(
         const recentFiles = streamFiles.filter(file => {
             // create and modify time should be within the last 5 minutes
             const currentTime = new Date().getTime();
-            return (currentTime - file.mtime < 5 * 60 * 1_000) && (currentTime - file.ctime < 5 * 60 * 1_000);
+            return ((currentTime - file.mtime) < (5 * 60 * 1_000)) && ((currentTime - file.ctime) < (5 * 60 * 1_000));
         });
 
         // get the buffer of that file and call onBuffer
@@ -186,7 +186,7 @@ export function downloadStream(
     chunkDuration: number = 60,
     onTimeUpdate: (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => void,
     onFileUpdate: (file: string, fileSize: number) => void,
-    onFileUpload?: (file: string) => void
+    onFileUpload?: (file: string, fileSize: number) => void
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         // Clear output directory if it exists
@@ -220,7 +220,7 @@ export function downloadStream(
                         const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${s3Path}/${filename}`;
                         const urlUpload = await uploadFile(s3ChunkPath, localPath);
                         logger.log(`[${name}] S3 Upload ${urlUpload}`);
-                        onFileUpload?.(urlUpload);
+                        onFileUpload?.(urlUpload, buffer.length);
                     }
                 } catch (err) {
                     console.error(`[${name}] Error saving/uploading file:`, err);

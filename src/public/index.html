@@ -187,13 +187,16 @@
                           <div class="uploaded-files">
                             <p class="mb-2">Uploaded Files:</p>
                             ${
-                              state.uploadedFiles
+                              state.uploadedFiles &&
+                              state.uploadedFiles.length > 0
                                 ? `<div class="file-chain">
                                     ${state.uploadedFiles
                                       .map(
                                         (file, index) =>
-                                          `<a href="${file}" target="_blank" class="file-chain-item text-decoration-none">
-                                            [${index + 1}]
+                                          `<a href="${
+                                            file.url
+                                          }" target="_blank" class="file-chain-item text-decoration-none">
+                                            [${index + 1}](${file.size})
                                           </a>`
                                       )
                                       .join("")}

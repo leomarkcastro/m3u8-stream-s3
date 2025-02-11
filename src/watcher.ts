@@ -126,8 +126,11 @@ class StreamWatcher {
                             }
                             stateTracker.setValue(states);
                         },
-                        (file: string) => {
-                            states[stream.name].uploadedFiles.push(file);
+                        (file, fileSize) => {
+                            states[stream.name].uploadedFiles.push({
+                                url: file,
+                                size: bytesToSize(fileSize)
+                            });
                             stateTracker.setValue(states);
                         }
                     );

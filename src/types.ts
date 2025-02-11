@@ -4,7 +4,10 @@ export interface StreamState {
     currentTimemark: string;
     fileLogs: string[];
     lastActiveTime: Date | null;
-    uploadedFiles: string[];
+    uploadedFiles: {
+        url: string;
+        size: string;
+    }[];
     pingHistory: boolean[];
     url: string;
 }
