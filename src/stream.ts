@@ -35,6 +35,12 @@ async function selectStreamQuality(name: string, masterM3u8Url: string, preferre
         }
         const manifest = await response.text();
 
+        // Check if this is a direct stream (contains EXTINF tags) rather than a master playlist
+        if (manifest.includes('#EXTINF')) {
+            logger.log(`[${name}] Direct stream detected, using original URL`);
+            return masterM3u8Url;
+        }
+
         // Parse the M3U8 manifest to find different quality streams
         const streamUrls: { bandwidth: number; url: string }[] = [];
         const lines = manifest.split('\n');
