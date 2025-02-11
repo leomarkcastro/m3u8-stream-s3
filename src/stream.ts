@@ -181,14 +181,17 @@ export async function downloadHLSTOMp4(
     ffmpegCommand.videoCodec('libx264');
     ffmpegCommand.audioCodec('aac');
     ffmpegCommand.outputOptions([
-        '-movflags', 'faststart',
+        '-movflags', 'faststart+frag_keyframe+empty_moov',
         '-f', 'segment',
         '-segment_time', chunkDuration.toString(),
-        '-reset_timestamps', '1',
-        '-segment_start_number', '0',
         '-segment_format', 'mp4',
         '-force_key_frames', `expr:gte(t,n_forced*${chunkDuration})`,
-        '-sc_threshold', '0'  // Disable scene detection
+        '-vsync', '1',  // Maintain video sync
+        '-async', '1',  // Maintain audio sync
+        '-copyts',      // Copy timestamps
+        '-start_at_zero',  // Start timestamps at zero
+        '-avoid_negative_ts', 'make_zero',
+        '-max_muxing_queue_size', '1024'
     ]);
     ffmpegCommand.output(output);
     ffmpegCommand.on('end', async () => {
@@ -371,7 +374,11 @@ export async function combineStreams(
             .outputOptions([
                 '-c:v', 'copy',
                 '-c:a', 'copy',
-                '-movflags', '+faststart'
+                '-vsync', '1',
+                '-async', '1',
+                '-max_muxing_queue_size', '1024',
+                '-fflags', '+genpts',  // Generate presentation timestamps
+                '-movflags', '+faststart+frag_keyframe+empty_moov'
             ]);
 
         cmd.save(outputDir + "/" + outputFileName);
