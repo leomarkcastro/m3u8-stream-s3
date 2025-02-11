@@ -24,10 +24,10 @@ export async function checkM3U8Availability(m3u8Url: string): Promise<boolean> {
 }
 
 export function bytesToSize(bytes: number): string {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes === 0) return '0 Byte';
+    const sizes = ['Frames', 'KF', 'MF', 'GF', 'TF'];
+    if (bytes === 0) return '0 Frames';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+    return (bytes / Math.pow(1000, i)).toFixed(2) + ' ' + sizes[i];
 }
 
 
