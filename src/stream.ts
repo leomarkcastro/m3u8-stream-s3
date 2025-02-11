@@ -139,7 +139,7 @@ export async function downloadHLSTOMp4(
             fs.unlinkSync(path.join(tmpDir, file.name));
         }
 
-    }, 90 * 1_000); // check every 90 seconds
+    }, 5.5 * 60 * 1_000); // check every 90 seconds
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
