@@ -24,8 +24,8 @@ export async function checkM3U8Availability(m3u8Url: string): Promise<boolean> {
 }
 
 export function bytesToSize(bytes: number): string {
-    const sizes = ['Frames', 'KF', 'MF', 'GF', 'TF'];
-    if (bytes === 0) return '0 Frames';
+    const sizes = ['', 'K', 'M', 'G', 'T'];
+    if (bytes === 0) return '0';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return (bytes / Math.pow(1000, i)).toFixed(2) + ' ' + sizes[i];
 }

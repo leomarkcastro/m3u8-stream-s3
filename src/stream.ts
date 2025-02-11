@@ -111,7 +111,6 @@ export async function downloadHLSTOMp4(
         fs.rmdirSync(tmpDir, { recursive: true });
     }
 
-
     const fileWatcherInterval = setInterval(async () => {
         // get files from tmpDir along with their last modified time
         const streamFiles = fs.readdirSync(tmpDir).map(file => {
@@ -122,12 +121,8 @@ export async function downloadHLSTOMp4(
             };
         });
 
-        // filter out files that have been modified in the last 5 minutes
-        const recentFiles = streamFiles.filter(file => {
-            // create and modify time should be within the last 5 minutes
-            const currentTime = new Date().getTime();
-            return ((currentTime - file.mtime) < (5 * 60 * 1_000)) && ((currentTime - file.ctime) < (5 * 60 * 1_000));
-        });
+        // only process 1 file at a time
+        const recentFiles = streamFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 1).slice(0, 1);
 
         // get the buffer of that file and call onBuffer
         for (const file of recentFiles) {
@@ -139,7 +134,7 @@ export async function downloadHLSTOMp4(
             fs.unlinkSync(path.join(tmpDir, file.name));
         }
 
-    }, 5.5 * 60 * 1_000); // check every 90 seconds
+    }, 5.5 * 60 * 1_000); // check every 6 minutes
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
@@ -163,8 +158,11 @@ export async function downloadHLSTOMp4(
     ffmpegCommand.output(output);
     ffmpegCommand.on('end', async () => {
         logger.log('ffmpeg end');
-        // wait for 1 minute before closing the watcher
-        await new Promise((resolve) => setTimeout(resolve, 7 * 60 * 1_000));
+        while (true) {
+            if (fs.readdirSync(tmpDir).length === 0) {
+                break;
+            }
+        }
         clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(tmpDir, streamFiles);
@@ -173,7 +171,11 @@ export async function downloadHLSTOMp4(
     });
     ffmpegCommand.on('error', async (err) => {
         logger.log('ffmpeg error', err);
-        await new Promise((resolve) => setTimeout(resolve, 7 * 60 * 1_000));
+        while (true) {
+            if (fs.readdirSync(tmpDir).length === 0) {
+                break;
+            }
+        }
         clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
         await onEnd(tmpDir, streamFiles);
