@@ -192,6 +192,7 @@ export async function downloadHLSTOMp4(
             if (fs.readdirSync(tmpDir).length === 0) {
                 break;
             }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
         }
         clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
@@ -205,6 +206,7 @@ export async function downloadHLSTOMp4(
             if (fs.readdirSync(tmpDir).length === 0) {
                 break;
             }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
         }
         clearInterval(fileWatcherInterval);
         const streamFiles = fs.readdirSync(tmpDir);
