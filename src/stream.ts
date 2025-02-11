@@ -6,6 +6,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { logger } from './utils/logger';
 import globalTracker from './globalTracker';
 import getVideoDurationInSeconds from 'get-video-duration';
+import { checkM3U8Availability } from './functions';
 
 // size to KB, MB conversion
 function formatBytes(bytes: number, decimals = 2): string {
@@ -133,12 +134,6 @@ export async function downloadHLSTOMp4(
 
         for (const file of recentFiles) {
             let isReady = false;
-            try {
-                // Try to open file with exclusive flag
-                let f = fs.openSync(file.name, 'r+');
-                fs.closeSync(f);
-                isReady = isReady || true;
-            } catch (error) { }
 
             try {
                 let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
@@ -150,8 +145,12 @@ export async function downloadHLSTOMp4(
 
                 if (actualDuration >= chunkDuration) {
                     isReady = isReady || true;
+                } else if (!(await checkM3U8Availability(m3u8Url))) {
+                    // if the stream ended, the file is ready to be processed
+                    isReady = isReady || true;
                 }
             } catch (err) { }
+
 
             if (isReady) {
                 toProcess.push(file);
