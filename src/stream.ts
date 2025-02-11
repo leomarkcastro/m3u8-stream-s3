@@ -142,6 +142,7 @@ export async function downloadHLSTOMp4(
 
             try {
                 let videoDuration = await getVideoDurationInSeconds(path.join(tmpDir, file.name), '/usr/bin/ffprobe');
+                onFileReady(file.name, videoDuration);
                 if (videoDuration >= chunkDuration) {
                     isReady = isReady || true;
                 }
