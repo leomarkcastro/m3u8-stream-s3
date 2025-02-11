@@ -106,8 +106,8 @@ class StreamWatcher {
                         outputDir,
                         stream.uploadToS3,
                         stream.chunkDuration,
-                        (timemark: string) => {
-                            states[stream.name].currentTimemark = timemark;
+                        (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => {
+                            states[stream.name].currentTimemark = `${args.timemark} (${args.currentKbps} kbps) (${args.frames} frames)`;
                             stateTracker.setValue(states);
                         },
                         (file: string) => {

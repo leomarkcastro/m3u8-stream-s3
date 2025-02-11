@@ -89,7 +89,7 @@ export async function downloadHLSTOMp4(
     m3u8Url: string,
     chunkDuration: number = 5, // Default chunk duration in seconds
     onBuffer: (buffer: Buffer) => Promise<void>,
-    onTimeUpdate: (timemark: string) => void,
+    onTimeUpdate: (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => void,
     onEnd: (directory: string, streamFiles: string[]) => Promise<void>,
     preferredQuality: 'highest' | 'lowest' | number = 'lowest'
 ): Promise<void> {
@@ -162,7 +162,7 @@ export async function downloadHLSTOMp4(
     });
     ffmpegCommand.on('progress', (progress) => {
         logger.log(`[${name}] Processing: ${progress.timemark}ms done`);
-        onTimeUpdate(progress.timemark);
+        onTimeUpdate(progress);
     });
     ffmpegCommand.run();
 }
@@ -173,7 +173,7 @@ export function downloadStream(
     outputDir: string,
     uploadToS3: boolean = false,
     chunkDuration: number = 60,
-    onTimeUpdate: (timemark: string) => void,
+    onTimeUpdate: (args: { frames: number; currentFps: number; currentKbps: number; targetSize: number; timemark: string; percent?: number | undefined }) => void,
     onFileUpload?: (file: string) => void
 ): Promise<void> {
     return new Promise((resolve, reject) => {
