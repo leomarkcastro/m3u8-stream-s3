@@ -106,7 +106,7 @@ export async function downloadHLSTOMp4(
         ignored: (file, _stats) => Boolean(_stats?.isFile() && !file.endsWith('.mp4')),
         awaitWriteFinish: {
             pollInterval: 10_000,
-            stabilityThreshold: 3 * 60 * 1_000 // wait 1 minute after last write
+            stabilityThreshold: 1 * 60 * 1_000 // wait 1 minute after last write
         },
         atomic: true
     });
