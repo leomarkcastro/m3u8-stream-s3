@@ -121,20 +121,34 @@ export async function downloadHLSTOMp4(
             };
         });
 
-        // only process 1 file at a time
-        const recentFiles = streamFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 1).slice(0, 1);
+        // check if the first file on list is locked(being written to)
+        const recentFiles = streamFiles.sort((a, b) => b.ctime - a.ctime).slice(0, 1);
 
-        // get the buffer of that file and call onBuffer
+        let isReady = false;
         for (const file of recentFiles) {
-            const buffer = fs.readFileSync(path.join(tmpDir, file.name));
-            onFileReady(file.name, buffer.length);
-            await onBuffer(buffer);
+            try {
+                // Try to open file with exclusive flag
+                let f = fs.openSync(file.name, 'r+');
+                isReady = true;
+                fs.closeSync(f);
 
-            // delete the temporary file after processing
-            fs.unlinkSync(path.join(tmpDir, file.name));
+            } catch (error) {
+            }
         }
 
-    }, 5.5 * 60 * 1_000); // check every 6 minutes
+        // get the buffer of that file and call onBuffer
+        if (isReady) {
+            for (const file of recentFiles) {
+                const buffer = fs.readFileSync(path.join(tmpDir, file.name));
+                onFileReady(file.name, buffer.length);
+                await onBuffer(buffer);
+
+                // delete the temporary file after processing
+                fs.unlinkSync(path.join(tmpDir, file.name));
+            }
+        }
+
+    }, 5 * 60 * 1_000); // check every 6 minutes
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
