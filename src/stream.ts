@@ -169,7 +169,7 @@ export async function downloadHLSTOMp4(
         }
 
 
-    }, 1 * 60 * 1_000); // check every 6 minutes
+    }, 30 * 1_000); // check every 6 minutes
 
     // Save HLS to MP4 chunks in the temporary directory
     const output = path.join(tmpDir, 'output-%03d.mp4');
@@ -178,20 +178,26 @@ export async function downloadHLSTOMp4(
     ffmpegCommand.setFfmpegPath('/usr/bin/ffmpeg')
 
     ffmpegCommand.input(selectedStreamUrl);
+    ffmpegCommand.inputOptions([
+        '-re',                    // Read input at native frame rate
+        '-hwaccel auto',         // Enable hardware acceleration if available
+        '-i_qfactor 0.71',       // Improve quality
+        '-qcomp 0.6',            // Compression parameter
+    ]);
     ffmpegCommand.videoCodec('libx264');
     ffmpegCommand.audioCodec('aac');
     ffmpegCommand.outputOptions([
-        '-movflags', 'faststart+frag_keyframe+empty_moov',
+        // '-movflags', 'faststart',
         '-f', 'segment',
         '-segment_time', chunkDuration.toString(),
+        '-reset_timestamps', '1',
+        '-segment_start_number', '0',
         '-segment_format', 'mp4',
         '-force_key_frames', `expr:gte(t,n_forced*${chunkDuration})`,
-        '-vsync', '1',  // Maintain video sync
-        '-async', '1',  // Maintain audio sync
-        '-copyts',      // Copy timestamps
-        '-start_at_zero',  // Start timestamps at zero
-        '-avoid_negative_ts', 'make_zero',
-        '-max_muxing_queue_size', '1024'
+        '-sc_threshold', '0',  // Disable scene detection 
+        '-preset fast',           // Fast encoding preset
+        '-max_muxing_queue_size 1024',  // Handle large queues
+        '-avoid_negative_ts make_zero',  // Handle negative timestamps
     ]);
     ffmpegCommand.output(output);
     ffmpegCommand.on('end', async () => {
@@ -267,7 +273,7 @@ export function downloadStream(
                     if (uploadToS3) {
                         // replace backslashes with forward slashes
                         let s3Path = outputDir.replace(/\\/g, '/').replace('recordings/', '');
-                        const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${s3Path}/${filename}`;
+                        const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${process.env.STREAM_SERVER_NAME ?? 'default'}/${s3Path}/${filename}`;
                         const urlUpload = await uploadFile(s3ChunkPath, localPath);
                         logger.log(`[${name}] S3 Upload ${urlUpload}`);
                         onFileUpload?.(urlUpload, buffer.length);
@@ -349,7 +355,7 @@ export async function combineStreams(
 
                 if (uploadToS3) {
                     const dirName = outputDir.replace(/\\/g, '/').replace('recordings/', '');
-                    const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${dirName}/${outputFileName}`;
+                    const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${process.env.STREAM_SERVER_NAME ?? 'default'}/${dirName}/${outputFileName}`;
                     let curFiles = globalTracker.getValue()?.uploadedFiles ?? [];
                     const uploadedFileUrl = await uploadFile(s3FinalPath, path.join(outputDir, outputFileName));
                     globalTracker.setValue({
@@ -374,11 +380,7 @@ export async function combineStreams(
             .outputOptions([
                 '-c:v', 'copy',
                 '-c:a', 'copy',
-                '-vsync', '1',
-                '-async', '1',
-                '-max_muxing_queue_size', '1024',
-                '-fflags', '+genpts',  // Generate presentation timestamps
-                '-movflags', '+faststart+frag_keyframe+empty_moov'
+                '-movflags', '+faststart'
             ]);
 
         cmd.save(outputDir + "/" + outputFileName);
