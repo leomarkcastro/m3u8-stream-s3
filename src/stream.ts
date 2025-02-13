@@ -7,6 +7,7 @@ import { logger } from './utils/logger';
 import globalTracker from './globalTracker';
 import getVideoDurationInSeconds from 'get-video-duration';
 import { checkM3U8Availability } from './functions';
+import { sendWebhookEvent } from './webhook';
 
 // size to KB, MB conversion
 function formatBytes(bytes: number, decimals = 2): string {
@@ -273,8 +274,19 @@ export function downloadStream(
                     if (uploadToS3) {
                         // replace backslashes with forward slashes
                         let s3Path = outputDir.replace(/\\/g, '/').replace('recordings/', '');
-                        const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${process.env.STREAM_SERVER_NAME ?? 'default'}/${s3Path}/${filename}`;
+                        const s3ChunkPath = `${config.AWS.S3_SAVE_PATH}/${config.STREAM_SERVER_NAME}/${s3Path}/${filename}`;
                         const urlUpload = await uploadFile(s3ChunkPath, localPath);
+                        await sendWebhookEvent({
+                            type: 'chunkUpload',
+                            payload: {
+                                name,
+                                url: urlUpload,
+                                size: formatBytes(buffer.length, 2),
+                                source: streamUrl,
+                            },
+                            server: config.STREAM_SERVER_NAME,
+                            time: new Date().toISOString(),
+                        });
                         logger.log(`[${name}] S3 Upload ${urlUpload}`);
                         onFileUpload?.(urlUpload, buffer.length);
                     }
@@ -355,7 +367,7 @@ export async function combineStreams(
 
                 if (uploadToS3) {
                     const dirName = outputDir.replace(/\\/g, '/').replace('recordings/', '');
-                    const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${process.env.STREAM_SERVER_NAME ?? 'default'}/${dirName}/${outputFileName}`;
+                    const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${config.STREAM_SERVER_NAME}/${dirName}/${outputFileName}`;
                     let curFiles = globalTracker.getValue()?.uploadedFiles ?? [];
                     const uploadedFileUrl = await uploadFile(s3FinalPath, path.join(outputDir, outputFileName));
                     globalTracker.setValue({
@@ -365,7 +377,18 @@ export async function combineStreams(
                             url: uploadedFileUrl,
                             size: formatBytes(fs.statSync(path.join(outputDir, outputFileName)).size, 2),
                         }]
-                    })
+                    });
+                    await sendWebhookEvent({
+                        type: 'completeUpload',
+                        payload: {
+                            name,
+                            url: uploadedFileUrl,
+                            size: formatBytes(fs.statSync(path.join(outputDir, outputFileName)).size, 2),
+                            chunkCount: streamFiles.length,
+                        },
+                        server: config.STREAM_SERVER_NAME,
+                        time: new Date().toISOString(),
+                    });
                 }
 
                 resolve();

@@ -5,6 +5,8 @@ import stateTracker from './stateTracker';
 import { logger } from './utils/logger';
 import { getSystemUsage } from './usage';
 import { bytesToSize, checkM3U8Availability } from './functions';
+import { sendWebhookEvent } from './webhook';
+import { config } from './config';
 
 
 
@@ -84,6 +86,16 @@ class StreamWatcher {
                 const outputDir = path.join(this.outputBaseDir, stream.name, new Date().toISOString().replace(/[:]/g, '-'));
                 this.log(`Output directory for ${stream.name}: ${outputDir}`);
 
+                await sendWebhookEvent({
+                    type: 'streamStart',
+                    payload: {
+                        name: stream.name,
+                        url: stream.url,
+                    },
+                    server: config.STREAM_SERVER_NAME,
+                    time: new Date().toISOString(),
+                });
+
                 try {
                     await downloadStream(
                         stream.name,
@@ -120,6 +132,17 @@ class StreamWatcher {
                     stateTracker.setValue(states);
 
                     activeDownloads.delete(stream.name);
+
+
+                    await sendWebhookEvent({
+                        type: 'streamEnd',
+                        payload: {
+                            name: stream.name,
+                            url: stream.url,
+                        },
+                        server: config.STREAM_SERVER_NAME,
+                        time: new Date().toISOString(),
+                    });
                 } catch (error) {
                     console.error(`Error downloading stream ${stream.name}:`, error);
                     states[stream.name].isActive = false;

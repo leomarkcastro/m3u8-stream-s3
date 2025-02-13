@@ -15,5 +15,8 @@ export const config = {
         CHECK_INTERVAL_MS: Number(process.env.STREAM_CHECK_INTERVAL_MS) || 5 * 60 * 1000,
         CHUNK_DURATION_S: Number(process.env.STREAM_CHUNK_DURATION_S) || 300,
         STREAM_DATA: process.env.STREAM_DATA || '[]',
-    }
+    },
+    WEBHOOK_URL: process.env.WEBHOOK_URL || '',
+    WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || '',
+    STREAM_SERVER_NAME: process.env.STREAM_SERVER_NAME || 'default',
 }
