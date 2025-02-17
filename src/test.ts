@@ -6,6 +6,7 @@ async function main() {
     let fileContents = fs.readdirSync(outputDir);
     fileContents = fileContents.sort();
     await combineStreams(
+        'id',
         'test',
         fileContents,
         outputDir,
