@@ -1,5 +1,6 @@
 
 export interface StreamState {
+    sessionID: string;
     isActive: boolean;
     currentTimemark: string;
     fileLogs: string[];

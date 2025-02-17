@@ -7,6 +7,7 @@ import { getSystemUsage } from './usage';
 import { bytesToSize, checkM3U8Availability } from './functions';
 import { sendWebhookEvent } from './webhook';
 import { config } from './config';
+import { randomID } from './utils/randomID';
 
 
 
@@ -41,6 +42,7 @@ class StreamWatcher {
         const states: StreamStates = {};
         this.streams.forEach(stream => {
             states[stream.name] = {
+                sessionID: '',
                 isActive: false,
                 currentTimemark: '0',
                 lastActiveTime: null,
@@ -80,10 +82,12 @@ class StreamWatcher {
 
             states[stream.name].isActive = isAvailable;
             if (isAvailable) {
+                let sessionID = randomID(10);
                 states[stream.name].lastActiveTime = new Date();
+                states[stream.name].sessionID = sessionID;
                 activeDownloads.add(stream.name);
 
-                const outputDir = path.join(this.outputBaseDir, stream.name, new Date().toISOString().replace(/[:]/g, '-'));
+                const outputDir = path.join(this.outputBaseDir, stream.name, new Date().toISOString().replace(/[:]/g, '-') + '-' + sessionID);
                 this.log(`Output directory for ${stream.name}: ${outputDir}`);
 
                 await sendWebhookEvent({
@@ -91,6 +95,7 @@ class StreamWatcher {
                     payload: {
                         name: stream.name,
                         url: stream.url,
+                        sessionID: sessionID,
                     },
                     server: config.STREAM_SERVER_NAME,
                     time: new Date().toISOString(),
@@ -98,6 +103,7 @@ class StreamWatcher {
 
                 try {
                     await downloadStream(
+                        sessionID,
                         stream.name,
                         stream.url,
                         outputDir,
@@ -124,7 +130,13 @@ class StreamWatcher {
                         }
                     );
 
+                } catch (error) {
+                    console.error(`Error downloading stream ${stream.name}:`, error);
+                    setTimeout(() => this.processStream(stream), 30000);
+                } finally {
+
                     // Clean up state after stream ends
+                    states[stream.name].sessionID = '';
                     states[stream.name].currentTimemark = '0';
                     states[stream.name].uploadedFiles = [];
                     states[stream.name].isActive = false;
@@ -139,16 +151,11 @@ class StreamWatcher {
                         payload: {
                             name: stream.name,
                             url: stream.url,
+                            sessionID: sessionID,
                         },
                         server: config.STREAM_SERVER_NAME,
                         time: new Date().toISOString(),
                     });
-                } catch (error) {
-                    console.error(`Error downloading stream ${stream.name}:`, error);
-                    states[stream.name].isActive = false;
-                    stateTracker.setValue(states);
-                    activeDownloads.delete(stream.name);
-                    setTimeout(() => this.processStream(stream), 30000);
                 }
             }
         } catch (error) {

@@ -236,6 +236,7 @@ export async function downloadHLSTOMp4(
 }
 
 export function downloadStream(
+    sessionID: string,
     name: string,
     streamUrl: string,
     outputDir: string,
@@ -283,6 +284,7 @@ export function downloadStream(
                                 url: urlUpload,
                                 size: formatBytes(buffer.length, 2),
                                 source: streamUrl,
+                                sessionID
                             },
                             server: config.STREAM_SERVER_NAME,
                             time: new Date().toISOString(),
@@ -301,7 +303,7 @@ export function downloadStream(
                 try {
                     let fileContents = fs.readdirSync(outputDir);
                     fileContents = fileContents.sort();
-                    await combineStreams(name, fileContents, outputDir, 'complete.mp4', uploadToS3);
+                    await combineStreams(sessionID, name, fileContents, outputDir, 'complete.mp4', uploadToS3);
 
                     // delete all files in the output directory
                     for (const file of fileContents) {
@@ -319,6 +321,7 @@ export function downloadStream(
 
 
 export async function combineStreams(
+    sessionID: string,
     name: string,
     streamFiles: string[],
     outputDir: string,
@@ -385,6 +388,7 @@ export async function combineStreams(
                             url: uploadedFileUrl,
                             size: formatBytes(fs.statSync(path.join(outputDir, outputFileName)).size, 2),
                             chunkCount: streamFiles.length,
+                            sessionID
                         },
                         server: config.STREAM_SERVER_NAME,
                         time: new Date().toISOString(),
