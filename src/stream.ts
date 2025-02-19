@@ -284,7 +284,7 @@ export function downloadStream(
                                 url: urlUpload,
                                 size: formatBytes(buffer.length, 2),
                                 source: streamUrl,
-                                sessionID
+                                sessionID,
                             },
                             server: config.STREAM_SERVER_NAME,
                             time: new Date().toISOString(),

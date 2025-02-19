@@ -95,6 +95,7 @@ class StreamWatcher {
                     payload: {
                         name: stream.name,
                         url: stream.url,
+                        source: stream.url,
                         sessionID: sessionID,
                     },
                     server: config.STREAM_SERVER_NAME,
@@ -151,6 +152,7 @@ class StreamWatcher {
                         payload: {
                             name: stream.name,
                             url: stream.url,
+                            source: stream.url,
                             sessionID: sessionID,
                         },
                         server: config.STREAM_SERVER_NAME,
