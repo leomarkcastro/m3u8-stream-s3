@@ -170,6 +170,7 @@ export async function downloadHLSTOMp4(
         mtime: number;
         ctime: number;
       }[] = [];
+      let streamEnded = false;
 
       for (const file of recentFiles) {
         let isReady = false;
@@ -196,11 +197,11 @@ export async function downloadHLSTOMp4(
           ) {
             // if the stream ended, the file is ready to be processed
             isReady = isReady || true;
-            streamStatus.forceEnded = true;
+            streamEnded = true;
           } else if (!(await checkM3U8Availability(m3u8Url))) {
             // if the stream ended, the file is ready to be processed
             isReady = isReady || true;
-            streamStatus.forceEnded = true;
+            streamEnded = true;
           }
         } catch (err) {
           logger.log(`[${name}] Error checking video duration: ${err}`);
@@ -223,6 +224,10 @@ export async function downloadHLSTOMp4(
         } catch (err) {
           logger.log(`[${name}] Error processing file ${file.name}: ${err}`);
         }
+      }
+
+      if (streamEnded) {
+        streamStatus.forceEnded = true;
       }
     } catch (err) {
       logger.log(`[${name}] Error in file watcher interval: ${err}`);
