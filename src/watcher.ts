@@ -7,6 +7,7 @@ import { getSystemUsage } from './usage';
 import { bytesToSize, checkM3U8Availability } from './functions';
 import { sendWebhookEvent } from './webhook';
 import { config } from './config';
+import { retainRecentUploads } from './globalTracker';
 import { randomID } from './utils/randomID';
 
 
@@ -209,6 +210,7 @@ class StreamWatcher {
         // Set up ping history tracking
         this.pingInterval = setInterval(() => {
             this.updatePingHistory();
+            retainRecentUploads();
         }, 15 * 60 * 1000); // Every 15 minutes
     }
 

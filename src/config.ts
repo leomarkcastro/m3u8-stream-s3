@@ -10,6 +10,8 @@ export const config = {
         REGION: process.env.AWS_REGION || '',
         S3_BUCKET: process.env.AWS_S3_BUCKET || '',
         S3_SAVE_PATH: process.env.AWS_S3_SAVE_PATH || 'stream_backup',
+        // Spaces endpoint, e.g. https://nyc3.digitaloceanspaces.com
+        ENDPOINT: process.env.AWS_S3_ENDPOINT || '',
     },
     STREAM: {
         CHECK_INTERVAL_MS: Number(process.env.STREAM_CHECK_INTERVAL_MS) || 5 * 60 * 1000,

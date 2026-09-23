@@ -3,7 +3,7 @@ import stateTracker from './stateTracker';
 import { logger } from './utils/logger';
 import { getSystemUsage } from './usage';
 import path from 'path';
-import globalTracker from './globalTracker';
+import { retainRecentUploads } from './globalTracker';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -26,7 +26,7 @@ app.get('/', (_req, res) => {
 app.get('/api/status', async (_req, res) => {
     const states = JSON.parse(JSON.stringify(stateTracker.getValue()));
     const systemUsage = await getSystemUsage();
-    const globalState = globalTracker.getValue();
+    const uploadedFiles = retainRecentUploads();
 
     if (states) {
         for (const streamName in states) {
@@ -38,7 +38,7 @@ app.get('/api/status', async (_req, res) => {
         timestamp: new Date().toISOString(),
         states: states || {},
         system: systemUsage,
-        global: globalState,
+        global: { uploadedFiles },
     });
 });
 

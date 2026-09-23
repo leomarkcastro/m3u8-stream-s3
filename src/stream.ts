@@ -4,7 +4,7 @@ import { config } from "./config";
 import { uploadFile } from "./s3";
 import ffmpeg from "fluent-ffmpeg";
 import { logger } from "./utils/logger";
-import globalTracker from "./globalTracker";
+import globalTracker, { pruneUploadedFiles } from "./globalTracker";
 import getVideoDurationInSeconds from "get-video-duration";
 import { checkM3U8Availability } from "./functions";
 import { sendWebhookEvent } from "./webhook";
@@ -554,7 +554,7 @@ export async function combineStreams(
             .replace(/\\/g, "/")
             .replace("recordings/", "");
           const s3FinalPath = `${config.AWS.S3_SAVE_PATH}/${config.STREAM_SERVER_NAME}/${dirName}/${outputFileName}`;
-          let curFiles = globalTracker.getValue()?.uploadedFiles ?? [];
+          let curFiles = pruneUploadedFiles(globalTracker.getValue()?.uploadedFiles ?? []);
           const uploadedFileUrl = await uploadFile(
             s3FinalPath,
             path.join(outputDir, outputFileName)

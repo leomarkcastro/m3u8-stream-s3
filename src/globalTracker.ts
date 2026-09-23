@@ -1,5 +1,17 @@
 import { GlobalState } from './types';
 
+export const UPLOADED_FILE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+
+export function pruneUploadedFiles(
+    files: GlobalState['uploadedFiles'],
+    now = Date.now()
+): GlobalState['uploadedFiles'] {
+    return files.filter((file) => {
+        const createdAt = new Date(file.createdAt).getTime();
+        return !Number.isNaN(createdAt) && now - createdAt <= UPLOADED_FILE_RETENTION_MS;
+    });
+}
+
 class StateTracker<T> {
     private static instance: StateTracker<any> | null = null;
     private value: T | null = null;
@@ -29,7 +41,17 @@ class StateTracker<T> {
         this.value = newValue;
     }
 }
-// Export a default instance
-export default StateTracker.getInstance<GlobalState>({
+const globalTracker = StateTracker.getInstance<GlobalState>({
     uploadedFiles: []
 });
+
+export function retainRecentUploads(now = Date.now()): GlobalState['uploadedFiles'] {
+    const current = globalTracker.getValue();
+    const uploadedFiles = pruneUploadedFiles(current?.uploadedFiles ?? [], now);
+    if (current && uploadedFiles.length !== current.uploadedFiles.length) {
+        globalTracker.setValue({ uploadedFiles });
+    }
+    return uploadedFiles;
+}
+
+export default globalTracker;

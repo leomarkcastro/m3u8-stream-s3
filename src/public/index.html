@@ -70,7 +70,7 @@
       >
         <h2 class="h5 mb-0">Uploaded Files</h2>
         <button class="btn btn-sm btn-outline-primary" id="toggleFilesBtn">
-          Show All Files
+          Show 2 Weeks
         </button>
       </div>
       <div class="card-body">
@@ -90,7 +90,7 @@
           showAllFiles = !showAllFiles;
           this.textContent = showAllFiles
             ? "Show Recent Files"
-            : "Show All Files";
+            : "Show 2 Weeks";
           updateStatus();
         });
 
@@ -118,13 +118,13 @@
             `;
             document.getElementById("systemUsage").innerHTML = systemHtml;
 
-            // Global files section
-            const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-            const filteredFiles = data.global.uploadedFiles
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-              .filter(
-                (file) => showAllFiles || new Date(file.createdAt) > twoDaysAgo
-              );
+            // Global files section. Stored history is already capped at 2 weeks.
+            const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+            const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+            const cutoff = showAllFiles ? twoWeeksAgo : twoDaysAgo;
+            const filteredFiles = (data.global.uploadedFiles || [])
+              .filter((file) => new Date(file.createdAt).getTime() >= cutoff)
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             const globalFilesHtml =
               filteredFiles.length > 0
