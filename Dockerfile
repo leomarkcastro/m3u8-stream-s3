@@ -1,4 +1,4 @@
-FROM node:18-slim
+FROM node:22.23.4-bookworm-slim
 
 # Install required dependencies and ffmpeg
 RUN apt-get update && \
